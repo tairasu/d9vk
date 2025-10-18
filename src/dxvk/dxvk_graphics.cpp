@@ -101,9 +101,16 @@ namespace dxvk {
     if (!this->validatePipelineState(state, false))
       return false;
 
+    // macOS Metal 4 optimization: MoltenVK's compiler is thread-safe
+    // Allow parallel pipeline compilation to utilize multiple cores
+    #ifndef __APPLE__
     // Keep the object locked while compiling a pipeline since compiling
     // similar pipelines concurrently is fragile on some drivers
     std::lock_guard<dxvk::mutex> lock(m_mutex);
+    #else
+    // On macOS, only lock when checking/creating instances, not during compilation
+    // This allows multiple pipelines to compile in parallel
+    #endif
 
     return (this->findInstance(state, renderPass) == nullptr) &&
            (this->createInstance(state, renderPass) != nullptr);

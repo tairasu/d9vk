@@ -123,6 +123,8 @@ namespace dxvk {
     uint32_t                  m_frameLatencyCap   = 0;
     Rc<sync::Fence>           m_frameLatencySignal;
 
+    uint32_t                  m_presentCount      = 0;  // Track frame count for startup optimization
+
     bool                      m_dirty    = true;
     bool                      m_vsync    = true;
 

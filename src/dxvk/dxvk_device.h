@@ -397,10 +397,12 @@ namespace dxvk {
      * can be retrieved with \ref waitForSubmission.
      * \param [in] presenter The presenter
      * \param [out] status Present status
+     * \param [in] frameId Frame identifier for diagnostics
      */
     void presentImage(
       const Rc<vk::Presenter>&        presenter,
-            DxvkSubmitStatus*         status);
+            DxvkSubmitStatus*         status,
+            uint64_t                  frameId);
     
     /**
      * \brief Submits a command list

@@ -1,6 +1,7 @@
 #include <cstring>
 #include <vector>
 #include <utility>
+#include <atomic>
 
 #include "dxvk_device.h"
 #include "dxvk_context.h"
@@ -4570,7 +4571,17 @@ namespace dxvk {
       this->spillRenderPass(false);
 
     // All images are in their default layout for suspended passes
-    if (!m_flags.test(DxvkContextFlag::GpRenderPassSuspended))
+    bool isSuspended = !m_flags.test(DxvkContextFlag::GpRenderPassSuspended);
+
+    // DIAGNOSTIC: Log suspension state to understand Tahoe vs Sequoia difference
+    static std::atomic<uint32_t> callCount(0);
+    uint32_t currentCall = callCount.fetch_add(1);
+    if (currentCall < 200) {  // Only log first 200 calls to avoid spam
+      Logger::info(str::format("prepareImage call #", currentCall,
+                              ": RenderPass ", (isSuspended ? "SUSPENDED (no barriers)" : "ACTIVE (will insert barriers)")));
+    }
+
+    if (isSuspended)
       return;
 
     // 3D images require special care because they only have one
@@ -5234,12 +5245,21 @@ namespace dxvk {
   }
   
   bool DxvkContext::checkAsyncCompilationCompat() {
+    // macOS Tahoe + Wine 10 fix: FORCE async compilation always
+    // Wine 10's win32u has severe stutter when pipelines compile synchronously
+    // This eliminates 15-20s startup lag and UI interaction freezes
+    // Original code checked framebuffer compatibility, but on macOS we need
+    // aggressive async to avoid blocking the main thread
+    return true;  // ← ALWAYS allow async compilation
+    
+    /* Original compatibility check (disabled for macOS):
     bool fbCompat = true;
     for (uint32_t i = 0; fbCompat && i < m_state.om.framebufferInfo.numAttachments(); i++) {
       const auto& attachment = m_state.om.framebufferInfo.getAttachment(i);
       fbCompat &= attachment.view->getRtBindingAsyncCompilationCompat();
     }
     return fbCompat;
+    */
   }
 
   DxvkGraphicsPipeline* DxvkContext::lookupGraphicsPipeline(

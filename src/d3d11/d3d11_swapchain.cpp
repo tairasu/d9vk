@@ -2,6 +2,8 @@
 #include "d3d11_device.h"
 #include "d3d11_swapchain.h"
 
+#include <chrono>
+
 namespace dxvk {
 
   static uint16_t MapGammaControlPoint(float x) {
@@ -278,7 +280,7 @@ namespace dxvk {
 
       uint32_t imageIndex = 0;
 
-      VkResult status = m_presenter->acquireNextImage(sync, imageIndex);
+      VkResult status = m_presenter->acquireNextImage(sync, imageIndex, m_frameId);
 
       while (status != VK_SUCCESS && status != VK_SUBOPTIMAL_KHR) {
         RecreateSwapChain(m_vsync);
@@ -287,7 +289,7 @@ namespace dxvk {
           return DXGI_STATUS_OCCLUDED;
         
         info = m_presenter->info();
-        status = m_presenter->acquireNextImage(sync, imageIndex);
+        status = m_presenter->acquireNextImage(sync, imageIndex, m_frameId);
       }
 
       // Resolve back buffer if it is multisampled. We
@@ -327,7 +329,8 @@ namespace dxvk {
       cFrameId     = FrameId,
       cSync        = Sync,
       cHud         = m_hud,
-      cCommandList = m_context->endRecording()
+      cCommandList = m_context->endRecording(),
+      cPresentFrameId = m_frameId
     ] (DxvkContext* ctx) {
       m_device->submitCommandList(cCommandList,
         cSync.acquire, cSync.present);
@@ -335,7 +338,7 @@ namespace dxvk {
       if (cHud != nullptr && !cFrameId)
         cHud->update();
 
-      m_device->presentImage(m_presenter, &m_presentStatus);
+      m_device->presentImage(m_presenter, &m_presentStatus, cPresentFrameId);
     });
 
     pContext->FlushCsChunk();
@@ -344,7 +347,11 @@ namespace dxvk {
 
   void D3D11SwapChain::SynchronizePresent() {
     // Recreate swap chain if the previous present call failed
+    auto syncStart = dxvk::high_resolution_clock::now();
     VkResult status = m_device->waitForSubmission(&m_presentStatus);
+    auto syncEnd = dxvk::high_resolution_clock::now();
+    auto syncUs = std::chrono::duration_cast<std::chrono::microseconds>(syncEnd - syncStart).count();
+    Logger::info(str::format("d3d11: waitForSubmission RETURN status=", status, ", duration_us=", syncUs));
     
     if (status != VK_SUCCESS)
       RecreateSwapChain(m_vsync);

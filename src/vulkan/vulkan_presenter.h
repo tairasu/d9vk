@@ -130,7 +130,8 @@ namespace dxvk::vk {
      */
     VkResult acquireNextImage(
             PresenterSync&  sync,
-            uint32_t&       index);
+            uint32_t&       index,
+            uint64_t        frameId = 0);
     
     /**
      * \brief Presents current image
@@ -140,7 +141,7 @@ namespace dxvk::vk {
      * but do not present before acquiring an image.
      * \returns Status of the operation
      */
-    VkResult presentImage();
+    VkResult presentImage(uint64_t frameId = 0);
     
     /**
      * \brief Changes presenter properties

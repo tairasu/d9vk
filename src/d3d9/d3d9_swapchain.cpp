@@ -4,6 +4,8 @@
 
 #include "d3d9_hud.h"
 
+#include <chrono>
+
 namespace dxvk {
 
 
@@ -892,8 +894,12 @@ namespace dxvk {
     // Bump our frame id.
     ++m_frameId;
 
+    Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] PresentImage - loop START"));
+
     for (uint32_t i = 0; i < SyncInterval || i < 1; i++) {
+      Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] SynchronizePresent CALL"));
       SynchronizePresent();
+      Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] SynchronizePresent RETURN"));
 
       // Presentation semaphores and WSI swap chain image
       vk::PresenterInfo info = m_presenter->info();
@@ -901,13 +907,16 @@ namespace dxvk {
 
       uint32_t imageIndex = 0;
 
-      VkResult status = m_presenter->acquireNextImage(sync, imageIndex);
+      Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] acquireNextImage CALL"));
+      VkResult status = m_presenter->acquireNextImage(sync, imageIndex, m_presentCount);
+      Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] acquireNextImage RETURN status=", status));
 
       while (status != VK_SUCCESS && status != VK_SUBOPTIMAL_KHR) {
+        Logger::warn(str::format("d9vk: [FRAME ", m_presentCount, "] RecreateSwapChain due to status=", status));
         RecreateSwapChain(m_vsync);
-        
+
         info = m_presenter->info();
-        status = m_presenter->acquireNextImage(sync, imageIndex);
+        status = m_presenter->acquireNextImage(sync, imageIndex, m_presentCount);
       }
 
       m_context->beginRecording(
@@ -934,6 +943,8 @@ namespace dxvk {
       SubmitPresent(sync, i);
     }
 
+    m_presentCount++;  // Increment frame counter
+
     SyncFrameLatency();
 
     // Rotate swap chain buffers so that the back
@@ -950,28 +961,54 @@ namespace dxvk {
     // have to synchronize with it first.
     m_presentStatus.result = VK_NOT_READY;
 
+    Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] SubmitPresent START"));
+
     m_parent->EmitCs([this,
       cFrameId     = FrameId,
       cSync        = Sync,
       cHud         = m_hud,
-      cCommandList = m_context->endRecording()
+      cCommandList = m_context->endRecording(),
+      cPresentCount = m_presentCount
     ] (DxvkContext* ctx) {
+      Logger::info(str::format("d9vk: [FRAME ", cPresentCount, "] submitCommandList START"));
       m_device->submitCommandList(cCommandList,
         cSync.acquire, cSync.present);
+      Logger::info(str::format("d9vk: [FRAME ", cPresentCount, "] submitCommandList END"));
 
       if (cHud != nullptr && !cFrameId)
         cHud->update();
 
-      m_device->presentImage(m_presenter, &m_presentStatus);
+      Logger::info(str::format("d9vk: [FRAME ", cPresentCount, "] presentImage START"));
+      m_device->presentImage(m_presenter, &m_presentStatus, cPresentCount);
+      Logger::info(str::format("d9vk: [FRAME ", cPresentCount, "] presentImage END"));
     });
 
+    Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] FlushCsChunk START"));
     m_parent->FlushCsChunk();
+    Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] FlushCsChunk END"));
   }
 
 
   void D3D9SwapChainEx::SynchronizePresent() {
-    // Recreate swap chain if the previous present call failed
+    // macOS Tahoe Metal 4 optimization: Skip sync on first 10 frames
+    // to avoid blocking on initial shader compilation
+    // Extended from 4 to 10 for macOS Tahoe Metal 4 shader compilation
+    if (m_presentCount < 10) {
+      Logger::info(str::format("d9vk: Skipping sync for frame ", m_presentCount, " (PATCHED CODE PATH - Tahoe extended)"));
+      // Only check for errors, don't block
+      if (m_presentStatus.result != VK_NOT_READY &&
+          m_presentStatus.result != VK_SUCCESS)
+        RecreateSwapChain(m_vsync);
+      return;
+    }
+
+    Logger::info(str::format("d9vk: Normal sync for frame ", m_presentCount));
+    auto syncStart = dxvk::high_resolution_clock::now();
+    // Normal path: Recreate swap chain if the previous present call failed
     VkResult status = m_device->waitForSubmission(&m_presentStatus);
+    auto syncEnd = dxvk::high_resolution_clock::now();
+    auto syncUs = std::chrono::duration_cast<std::chrono::microseconds>(syncEnd - syncStart).count();
+    Logger::info(str::format("d9vk: [FRAME ", m_presentCount, "] waitForSubmission RETURN status=", status, ", duration_us=", syncUs));
 
     if (status != VK_SUCCESS)
       RecreateSwapChain(m_vsync);
@@ -1237,9 +1274,13 @@ namespace dxvk {
         pDstModes[n++] = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
       pDstModes[n++] = VK_PRESENT_MODE_FIFO_KHR;
     } else {
+      // macOS Tahoe + Wine 10 fix: Prioritize MAILBOX over IMMEDIATE
+      // Wine 10's win32u_vkQueuePresentKHR has blocking behavior with IMMEDIATE mode
+      // that causes severe lag (0.79fps) on macOS Tahoe with MoltenVK + Metal 4
+      // MAILBOX mode provides better async behavior and eliminates the blocking
+      pDstModes[n++] = VK_PRESENT_MODE_MAILBOX_KHR;
       if (m_parent->GetOptions()->tearFree != Tristate::True)
         pDstModes[n++] = VK_PRESENT_MODE_IMMEDIATE_KHR;
-      pDstModes[n++] = VK_PRESENT_MODE_MAILBOX_KHR;
     }
 
     return n;

@@ -1,0 +1,4 @@
+.claude
+.github
+build*
+.claude/settings.local.json

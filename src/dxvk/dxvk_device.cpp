@@ -208,11 +208,13 @@ namespace dxvk {
   
   void DxvkDevice::presentImage(
     const Rc<vk::Presenter>&        presenter,
-          DxvkSubmitStatus*         status) {
+          DxvkSubmitStatus*         status,
+          uint64_t                  frameId) {
     status->result = VK_NOT_READY;
 
     DxvkPresentInfo presentInfo;
     presentInfo.presenter = presenter;
+    presentInfo.frameId   = frameId;
     m_submissionQueue.present(presentInfo, status);
     
     std::lock_guard<sync::Spinlock> statLock(m_statLock);

@@ -1,6 +1,8 @@
 #include "dxvk_device.h"
 #include "dxvk_queue.h"
 
+#include "../util/util_time.h"
+
 namespace dxvk {
   
   DxvkSubmissionQueue::DxvkSubmissionQueue(DxvkDevice* device)
@@ -108,7 +110,15 @@ namespace dxvk {
             entry.submit.waitSync,
             entry.submit.wakeSync);
         } else if (entry.present.presenter != nullptr) {
-          status = entry.present.presenter->presentImage();
+          Logger::info(str::format(
+            "dxvk: [FRAME ", entry.present.frameId, "] SubmissionQueue present START"));
+          auto presentStart = dxvk::high_resolution_clock::now();
+          status = entry.present.presenter->presentImage(entry.present.frameId);
+          auto presentEnd = dxvk::high_resolution_clock::now();
+          auto presentUs = std::chrono::duration_cast<std::chrono::microseconds>(presentEnd - presentStart).count();
+          Logger::info(str::format(
+            "dxvk: [FRAME ", entry.present.frameId, "] SubmissionQueue present END status=", status,
+            " duration_us=", presentUs));
         }
       } else {
         // Don't submit anything after device loss

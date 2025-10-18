@@ -5628,7 +5628,7 @@ namespace dxvk {
 
     // Add commands to flush the threaded
     // context, then flush the command list
-    uint64_t submissionId = ++m_submissionId;
+    [[maybe_unused]] uint64_t submissionId = ++m_submissionId;
 
     EmitCs<false>([] (DxvkContext* ctx) {
       ctx->flushCommandList();
@@ -7778,7 +7778,7 @@ namespace dxvk {
     EmitCs([
       cSize = m_state.textures->size()
     ](DxvkContext* ctx) {
-      VkShaderStageFlags stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+      [[maybe_unused]] VkShaderStageFlags stage = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
       for (uint32_t i = 0; i < cSize; i++) {
         auto samplerInfo = RemapStateSamplerShader(DWORD(i));

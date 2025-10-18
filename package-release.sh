@@ -86,7 +86,6 @@ function package {
   rm -R "dxvk-macOS-async-$DXVK_VERSION"
 }
 
-build_arch 64
 build_arch 32
 copy_extras
 
