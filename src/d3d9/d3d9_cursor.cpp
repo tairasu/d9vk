@@ -2,6 +2,7 @@
 #include "d3d9_util.h"
 
 #include <utility>
+#include <vector>
 
 namespace dxvk {
 
@@ -25,16 +26,38 @@ namespace dxvk {
   }
 
 
-  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap) {
-    DWORD mask[32];
-    std::memset(mask, ~0, sizeof(mask));
+  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap, uint32_t scale) {
+    uint32_t cursorScale = scale == 0 ? 1u : scale;
+    uint32_t outWidth  = HardwareCursorWidth  * cursorScale;
+    uint32_t outHeight = HardwareCursorHeight * cursorScale;
+
+    // Upscale color to ARGB32 buffer using nearest-neighbor
+    std::vector<uint8_t> color(outWidth * outHeight * HardwareCursorFormatSize);
+    for (uint32_t y = 0; y < outHeight; y++) {
+      uint32_t srcY = y / cursorScale;
+      const uint8_t* srcRow = &bitmap[srcY * HardwareCursorPitch];
+      uint8_t* dstRow = &color[y * outWidth * HardwareCursorFormatSize];
+      for (uint32_t x = 0; x < outWidth; x++) {
+        uint32_t srcX = x / cursorScale;
+        const uint8_t* srcPx = &srcRow[srcX * HardwareCursorFormatSize];
+        uint8_t* dstPx = &dstRow[x * HardwareCursorFormatSize];
+        dstPx[0] = srcPx[0];
+        dstPx[1] = srcPx[1];
+        dstPx[2] = srcPx[2];
+        dstPx[3] = srcPx[3];
+      }
+    }
+
+    // Create a fully opaque 1bpp mask of matching size
+    uint32_t maskWordsPerRow = (outWidth + 31u) / 32u;
+    std::vector<uint32_t> mask(maskWordsPerRow * outHeight, 0xFFFFFFFFu);
 
     ICONINFO info;
     info.fIcon    = FALSE;
-    info.xHotspot = XHotSpot;
-    info.yHotspot = YHotSpot;
-    info.hbmMask  = ::CreateBitmap(HardwareCursorWidth, HardwareCursorHeight, 1, 1,  mask);
-    info.hbmColor = ::CreateBitmap(HardwareCursorWidth, HardwareCursorHeight, 1, 32, &bitmap[0]);
+    info.xHotspot = XHotSpot * cursorScale;
+    info.yHotspot = YHotSpot * cursorScale;
+    info.hbmMask  = ::CreateBitmap(outWidth, outHeight, 1, 1,  mask.data());
+    info.hbmColor = ::CreateBitmap(outWidth, outHeight, 1, 32, color.data());
 
     if (m_hCursor != nullptr)
       ::DestroyCursor(m_hCursor);
@@ -50,19 +73,15 @@ namespace dxvk {
   }
 #else
   void D3D9Cursor::UpdateCursor(int X, int Y) {
-    Logger::warn("D3D9Cursor::UpdateCursor: Not supported on current platform.");
   }
 
 
   BOOL D3D9Cursor::ShowCursor(BOOL bShow) {
-    Logger::warn("D3D9Cursor::ShowCursor: Not supported on current platform.");
     return std::exchange(m_visible, bShow);
   }
 
 
-  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap) {
-    Logger::warn("D3D9Cursor::SetHardwareCursor: Not supported on current platform.");
-
+  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap, uint32_t scale) {
     return D3D_OK;
   }
 #endif

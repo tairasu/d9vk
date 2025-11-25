@@ -20,7 +20,7 @@ namespace dxvk {
 
     BOOL ShowCursor(BOOL bShow);
 
-    HRESULT SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap);
+    HRESULT SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap, uint32_t scale);
 
   private:
 

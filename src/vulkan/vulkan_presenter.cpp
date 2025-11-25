@@ -16,7 +16,6 @@ namespace dxvk::vk {
     // not filter the pNext chain for VkSwapchainCreateInfoKHR properly
     // before passing it to the Linux sude, which breaks RenderDoc.
     if (m_device.features.fullScreenExclusive && ::GetModuleHandle("winevulkan.dll")) {
-      Logger::warn("winevulkan detected, disabling exclusive fullscreen support");
       m_device.features.fullScreenExclusive = false;
     }
 
@@ -49,34 +48,15 @@ namespace dxvk::vk {
 
     // Don't acquire more than one image at a time
     if (m_acquireStatus == VK_NOT_READY) {
-      Logger::info(str::format(
-        "dxvk: [FRAME ", frameId, "] Presenter acquireNextImage vkAcquireNextImageKHR START frameIndex=",
-        m_frameIndex));
-      auto acquireStart = dxvk::high_resolution_clock::now();
       m_acquireStatus = m_vkd->vkAcquireNextImageKHR(m_vkd->device(),
         m_swapchain, std::numeric_limits<uint64_t>::max(),
         sync.acquire, VK_NULL_HANDLE, &m_imageIndex);
-      auto acquireEnd = dxvk::high_resolution_clock::now();
-      auto acquireUs = std::chrono::duration_cast<std::chrono::microseconds>(acquireEnd - acquireStart).count();
-      Logger::info(str::format(
-        "dxvk: [FRAME ", frameId, "] Presenter acquireNextImage vkAcquireNextImageKHR END status=",
-        m_acquireStatus, ", imageIndex=", m_imageIndex, ", duration_us=", acquireUs));
-    } else {
-      Logger::info(str::format(
-        "dxvk: [FRAME ", frameId, "] Presenter acquireNextImage reuse cached status=",
-        m_acquireStatus, ", imageIndex=", m_imageIndex));
     }
     
-    if (m_acquireStatus != VK_SUCCESS && m_acquireStatus != VK_SUBOPTIMAL_KHR) {
-      Logger::warn(str::format(
-        "dxvk: [FRAME ", frameId, "] Presenter acquireNextImage error status=", m_acquireStatus));
+    if (m_acquireStatus != VK_SUCCESS && m_acquireStatus != VK_SUBOPTIMAL_KHR)
       return m_acquireStatus;
-    }
     
     index = m_imageIndex;
-    Logger::info(str::format(
-      "dxvk: [FRAME ", frameId, "] Presenter acquireNextImage RETURN status=", m_acquireStatus,
-      ", index=", m_imageIndex));
     return m_acquireStatus;
   }
 
@@ -94,22 +74,10 @@ namespace dxvk::vk {
     info.pImageIndices      = &m_imageIndex;
     info.pResults           = nullptr;
 
-    Logger::info(str::format(
-      "dxvk: [FRAME ", frameId, "] Presenter presentImage vkQueuePresentKHR START frameIndex=", m_frameIndex,
-      ", imageIndex=", m_imageIndex));
-    auto presentStart = dxvk::high_resolution_clock::now();
     VkResult status = m_vkd->vkQueuePresentKHR(m_device.queue, &info);
-    auto presentEnd = dxvk::high_resolution_clock::now();
-    auto presentUs = std::chrono::duration_cast<std::chrono::microseconds>(presentEnd - presentStart).count();
-    Logger::info(str::format(
-      "dxvk: [FRAME ", frameId, "] Presenter presentImage vkQueuePresentKHR END status=", status,
-      ", duration_us=", presentUs));
 
-    if (status != VK_SUCCESS && status != VK_SUBOPTIMAL_KHR) {
-      Logger::warn(str::format(
-        "dxvk: [FRAME ", frameId, "] Presenter presentImage vkQueuePresentKHR error status=", status));
+    if (status != VK_SUCCESS && status != VK_SUBOPTIMAL_KHR)
       return status;
-    }
 
     // Try to acquire next image already, in order to hide
     // potential delays from the application thread.
@@ -118,18 +86,9 @@ namespace dxvk::vk {
 
     sync = m_semaphores.at(m_frameIndex);
 
-    Logger::info(str::format(
-      "dxvk: [FRAME ", frameId, "] Presenter presentImage vkAcquireNextImageKHR PREFETCH START frameIndex=",
-      m_frameIndex));
-    auto acquireStart = dxvk::high_resolution_clock::now();
     m_acquireStatus = m_vkd->vkAcquireNextImageKHR(m_vkd->device(),
       m_swapchain, std::numeric_limits<uint64_t>::max(),
       sync.acquire, VK_NULL_HANDLE, &m_imageIndex);
-    auto acquireEnd = dxvk::high_resolution_clock::now();
-    auto acquireUs = std::chrono::duration_cast<std::chrono::microseconds>(acquireEnd - acquireStart).count();
-    Logger::info(str::format(
-      "dxvk: [FRAME ", frameId, "] Presenter presentImage vkAcquireNextImageKHR PREFETCH END status=",
-      m_acquireStatus, ", imageIndex=", m_imageIndex, ", duration_us=", acquireUs));
 
     bool vsync = m_info.presentMode == VK_PRESENT_MODE_FIFO_KHR
               || m_info.presentMode == VK_PRESENT_MODE_FIFO_RELAXED_KHR;
@@ -222,13 +181,7 @@ namespace dxvk::vk {
     if (m_device.features.fullScreenExclusive)
       swapInfo.pNext = &fullScreenInfo;
 
-    Logger::info(str::format(
-      "Presenter: Actual swap chain properties:"
-      "\n  Format:       ", m_info.format.format,
-      "\n  Present mode: ", m_info.presentMode,
-      "\n  Buffer size:  ", m_info.imageExtent.width, "x", m_info.imageExtent.height,
-      "\n  Image count:  ", m_info.imageCount,
-      "\n  Exclusive FS: ", desc.fullScreenExclusive));
+    
     
     if ((status = m_vkd->vkCreateSwapchainKHR(m_vkd->device(),
         &swapInfo, nullptr, &m_swapchain)) != VK_SUCCESS)

@@ -350,8 +350,8 @@ namespace dxvk {
 
       UnlockImage(cursorTex, 0, 0);
 
-      // Set this as our cursor.
-      return m_cursor.SetHardwareCursor(XHotSpot, YHotSpot, bitmap);
+      // Set this as our cursor with optional enlargement.
+      return m_cursor.SetHardwareCursor(XHotSpot, YHotSpot, bitmap, static_cast<uint32_t>(m_d3d9Options.enlargeHardwareCursor));
     }
 
     // Software Cursor...

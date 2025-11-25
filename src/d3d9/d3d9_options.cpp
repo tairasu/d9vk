@@ -77,9 +77,16 @@ namespace dxvk {
     this->deviceLossOnFocusLoss         = config.getOption<bool>        ("d3d9.deviceLossOnFocusLoss",         false);
     this->samplerLodBias                = config.getOption<float>       ("d3d9.samplerLodBias",                0.0f);
     this->clampNegativeLodBias          = config.getOption<bool>        ("d3d9.clampNegativeLodBias",          false);
+    this->enlargeHardwareCursor         = config.getOption<int32_t>     ("d3d9.enlargeHardwareCursor",         1);
 
     // Clamp LOD bias so that people don't abuse this in unintended ways
     this->samplerLodBias = dxvk::fclamp(this->samplerLodBias, -2.0f, 1.0f);
+
+    // Clamp cursor scale to sane range [1, 8]
+    if (this->enlargeHardwareCursor < 1)
+      this->enlargeHardwareCursor = 1;
+    else if (this->enlargeHardwareCursor > 8)
+      this->enlargeHardwareCursor = 8;
 
     std::string floatEmulation = Config::toLower(config.getOption<std::string>("d3d9.floatEmulation", "auto"));
     if (floatEmulation == "strict") {

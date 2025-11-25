@@ -4574,12 +4574,12 @@ namespace dxvk {
     bool isSuspended = !m_flags.test(DxvkContextFlag::GpRenderPassSuspended);
 
     // DIAGNOSTIC: Log suspension state to understand Tahoe vs Sequoia difference
-    static std::atomic<uint32_t> callCount(0);
-    uint32_t currentCall = callCount.fetch_add(1);
-    if (currentCall < 200) {  // Only log first 200 calls to avoid spam
-      Logger::info(str::format("prepareImage call #", currentCall,
-                              ": RenderPass ", (isSuspended ? "SUSPENDED (no barriers)" : "ACTIVE (will insert barriers)")));
-    }
+    // static std::atomic<uint32_t> callCount(0);
+    // uint32_t currentCall = callCount.fetch_add(1);
+    // if (currentCall < 200) {  // Only log first 200 calls to avoid spam
+    //   Logger::info(str::format("prepareImage call #", currentCall,
+    //                           ": RenderPass ", (isSuspended ? "SUSPENDED (no barriers)" : "ACTIVE (will insert barriers)")));
+    // }
 
     if (isSuspended)
       return;

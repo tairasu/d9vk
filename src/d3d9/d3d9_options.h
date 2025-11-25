@@ -156,6 +156,9 @@ namespace dxvk {
 
     /// Enable emulation of device loss when a fullscreen app loses focus
     bool deviceLossOnFocusLoss;
+
+    /// Enlarge the hardware cursor by an integer scale (>= 1)
+    int32_t enlargeHardwareCursor;
   };
 
 }
