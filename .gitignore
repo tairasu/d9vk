@@ -2,3 +2,4 @@
 .github
 build*
 .claude/settings.local.json
+include/vulkan
