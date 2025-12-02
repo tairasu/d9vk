@@ -58,8 +58,6 @@ if platform == 'windows'
   endif
 
   lib_d3d9    = cpp.find_library('d3d9')
-  lib_d3d11   = cpp.find_library('d3d11')
-  lib_dxgi    = cpp.find_library('dxgi')
 
   if dxvk_is_msvc
     lib_d3dcompiler_47 = cpp.find_library('d3dcompiler')
