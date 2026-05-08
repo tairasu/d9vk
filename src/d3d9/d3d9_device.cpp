@@ -336,22 +336,32 @@ namespace dxvk {
       if (FAILED(hr))
         return hr;
 
-      const uint8_t* data  = reinterpret_cast<const uint8_t*>(lockedBox.pBits);
+      const uint8_t* data = reinterpret_cast<const uint8_t*>(lockedBox.pBits);
 
-      // Windows works with a stride of 128, lets respect that.
-      // Copy data to the bitmap...
-      CursorBitmap bitmap = { 0 };
-      size_t copyPitch = std::min<size_t>(
-        HardwareCursorPitch,
-        inputWidth * inputHeight * HardwareCursorFormatSize);
+      const uint32_t srcW  = std::min(inputWidth,  HardwareCursorWidth);
+      const uint32_t srcH  = std::min(inputHeight, HardwareCursorHeight);
+      const uint32_t scale = static_cast<uint32_t>(m_d3d9Options.enlargeHardwareCursor);
+      const uint32_t dstW  = srcW * scale;
+      const uint32_t dstH  = srcH * scale;
+      const uint32_t dstPitch = dstW * HardwareCursorFormatSize;
 
-      for (uint32_t h = 0; h < HardwareCursorHeight; h++)
-        std::memcpy(&bitmap[h * HardwareCursorPitch], &data[h * lockedBox.RowPitch], copyPitch);
+      std::vector<uint8_t> bitmap(dstH * dstPitch, 0);
+
+      for (uint32_t sy = 0; sy < srcH; sy++) {
+        for (uint32_t sx = 0; sx < srcW; sx++) {
+          const uint8_t* src = &data[sy * lockedBox.RowPitch + sx * HardwareCursorFormatSize];
+          for (uint32_t dy = 0; dy < scale; dy++) {
+            uint8_t* dst = &bitmap[(sy * scale + dy) * dstPitch + sx * scale * HardwareCursorFormatSize];
+            for (uint32_t dx = 0; dx < scale; dx++)
+              std::memcpy(dst + dx * HardwareCursorFormatSize, src, HardwareCursorFormatSize);
+          }
+        }
+      }
 
       UnlockImage(cursorTex, 0, 0);
 
       // Set this as our cursor.
-      return m_cursor.SetHardwareCursor(XHotSpot, YHotSpot, bitmap);
+      return m_cursor.SetHardwareCursor(XHotSpot * scale, YHotSpot * scale, bitmap.data(), dstW, dstH);
     }
 
     // Software Cursor...

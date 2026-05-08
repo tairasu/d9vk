@@ -2,6 +2,7 @@
 #include "d3d9_util.h"
 
 #include <utility>
+#include <vector>
 
 namespace dxvk {
 
@@ -25,16 +26,15 @@ namespace dxvk {
   }
 
 
-  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap) {
-    DWORD mask[32];
-    std::memset(mask, ~0, sizeof(mask));
+  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const uint8_t* bitmap, UINT width, UINT height) {
+    std::vector<DWORD> mask(height, ~0u);
 
     ICONINFO info;
     info.fIcon    = FALSE;
     info.xHotspot = XHotSpot;
     info.yHotspot = YHotSpot;
-    info.hbmMask  = ::CreateBitmap(HardwareCursorWidth, HardwareCursorHeight, 1, 1,  mask);
-    info.hbmColor = ::CreateBitmap(HardwareCursorWidth, HardwareCursorHeight, 1, 32, &bitmap[0]);
+    info.hbmMask  = ::CreateBitmap(width, height, 1, 1,  mask.data());
+    info.hbmColor = ::CreateBitmap(width, height, 1, 32, bitmap);
 
     if (m_hCursor != nullptr)
       ::DestroyCursor(m_hCursor);
@@ -60,7 +60,7 @@ namespace dxvk {
   }
 
 
-  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const CursorBitmap& bitmap) {
+  HRESULT D3D9Cursor::SetHardwareCursor(UINT XHotSpot, UINT YHotSpot, const uint8_t* bitmap, UINT width, UINT height) {
     Logger::warn("D3D9Cursor::SetHardwareCursor: Not supported on current platform.");
 
     return D3D_OK;

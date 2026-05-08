@@ -156,6 +156,10 @@ namespace dxvk {
 
     /// Enable emulation of device loss when a fullscreen app loses focus
     bool deviceLossOnFocusLoss;
+
+    /// Scale factor for the hardware cursor (1, 2, or 4).
+    /// Useful on HiDPI/Retina displays where the OS cursor is tiny.
+    int32_t enlargeHardwareCursor;
   };
 
 }

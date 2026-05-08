@@ -3,6 +3,7 @@
 #include "../util/util_math.h"
 #include "../util/log/log.h"
 #include "../util/util_likely.h"
+#include <algorithm>
 #include <utility>
 
 #ifdef D3D9_ALLOW_UNMAPPING
